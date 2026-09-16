@@ -1,0 +1,2030 @@
+--[[
+    ╔══════════════════════════════════════════════════════════════╗
+    ║                      S A N D R E Y   H U B                   ║
+    ║                  Premium Dark · v2.1                         ║
+    ╚══════════════════════════════════════════════════════════════╝
+    v2.1
+      · Premium dark-эстетика: матовый чёрный, графит, тёмно-серый
+      · Сдержанные платиновые / бронзовые / стальные акценты
+      · Тонкие L-уголки, мягкие тени, деликатное свечение
+      · Полный перенос функционала v2.0: Launcher-пилюля,
+        Visuals (третье лицо), Combat (Silent Aim),
+        Player, Server, Settings, темы, конфиг.
+]]
+
+-- ═══════════════════ SERVICES ═══════════════════
+local Players            = game:GetService("Players")
+local RunService         = game:GetService("RunService")
+local UserInputService   = game:GetService("UserInputService")
+local TweenService       = game:GetService("TweenService")
+local HttpService        = game:GetService("HttpService")
+local StatsService       = game:GetService("Stats")
+local GuiService         = game:GetService("GuiService")
+local Workspace          = game:GetService("Workspace")
+local CoreGui            = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera      = Workspace.CurrentCamera
+Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    if Workspace.CurrentCamera then Camera = Workspace.CurrentCamera end
+end)
+
+-- ═══════════════════ EXECUTOR ═══════════════════
+local function getExecutorName()
+    local name
+    pcall(function()
+        if identifyexecutor then name = identifyexecutor() end
+        if not name and getexecutorname then name = getexecutorname() end
+    end)
+    return name or "Unknown"
+end
+
+local function safeClosure(f)
+    if newcclosure then
+        local ok, res = pcall(newcclosure, f)
+        if ok then return res end
+    end
+    return f
+end
+
+-- ═══════════════════ THEMES (PREMIUM DARK) ═══════════════════
+-- Все темы — строгие, холодные/тёплые благородные оттенки, без неона.
+local Themes = {
+    {Name = "Platina", A = Color3.fromRGB(180, 185, 195), B = Color3.fromRGB(230, 232, 238)},   -- холодное серебро
+    {Name = "Onyx",     A = Color3.fromRGB(150, 155, 165), B = Color3.fromRGB(200, 205, 215)},   -- графит
+    {Name = "Bronze",   A = Color3.fromRGB(180, 150, 110), B = Color3.fromRGB(225, 200, 160)},   -- тёплая бронза
+    {Name = "Steel",    A = Color3.fromRGB(135, 155, 180), B = Color3.fromRGB(190, 205, 225)},   -- стальная дымка
+    {Name = "Jade",     A = Color3.fromRGB(145, 170, 155), B = Color3.fromRGB(200, 220, 210)},   -- приглушённый нефрит
+}
+
+-- ═══════════════════ PALETTE (единая премиум) ═══════════════════
+local Palette = {
+    BG          = Color3.fromRGB(10, 10, 12),   -- глубокий матовый чёрный
+    Panel       = Color3.fromRGB(16, 17, 19),   -- графит
+    PanelAlt    = Color3.fromRGB(22, 23, 26),   -- тёмно-серый
+    PanelSoft   = Color3.fromRGB(28, 29, 33),   -- мягкий графит
+    Line        = Color3.fromRGB(40, 42, 47),   -- тонкая линия
+    LineSoft    = Color3.fromRGB(55, 58, 65),   -- видимая линия
+    Text        = Color3.fromRGB(228, 230, 236),-- основной текст
+    TextDim     = Color3.fromRGB(168, 172, 182),-- приглушённый
+    TextMute    = Color3.fromRGB(98, 102, 112), -- очень тихий
+    TextDark    = Color3.fromRGB(12, 12, 14),   -- для контрастных подписей
+    Shadow      = Color3.fromRGB(0, 0, 0),
+}
+
+-- ═══════════════════ CONFIG ═══════════════════
+local Config = {
+    ThemeIndex = 1,
+    Accent  = Themes[1].A,
+    Accent2 = Themes[1].B,
+    UIScale = 0.5,
+    ToggleKey = Enum.KeyCode.RightShift,
+
+    -- Visuals · Third Person
+    TP_Enabled  = false,
+    TP_Distance = 8,
+    TP_Height   = 1,
+    TP_Side     = 0,
+    TP_HideBody = true,
+    TP_HideTool = false,
+
+    -- Combat · Silent Aim
+    SA_Enabled    = false,
+    SA_FOV        = 130,
+    SA_Part       = "HumanoidRootPart",
+    SA_AimMode    = "Cursor",   -- "Cursor" | "Center"
+    SA_ShowFOV    = true,
+    SA_IgnoreTeam = true,
+}
+local ConfigFile = "Sandrey_Premium_Config.json"
+
+local function saveConfig()
+    pcall(function()
+        if not writefile then return end
+        writefile(ConfigFile, HttpService:JSONEncode({
+            ThemeIndex = Config.ThemeIndex,
+            UIScale    = Config.UIScale,
+            ToggleKey  = tostring(Config.ToggleKey):gsub("Enum.KeyCode.", ""),
+            TP_Distance = Config.TP_Distance,
+            TP_Height   = Config.TP_Height,
+            TP_Side     = Config.TP_Side,
+            TP_HideBody = Config.TP_HideBody,
+            TP_HideTool = Config.TP_HideTool,
+            SA_FOV      = Config.SA_FOV,
+            SA_Part     = Config.SA_Part,
+            SA_AimMode  = Config.SA_AimMode,
+            SA_ShowFOV  = Config.SA_ShowFOV,
+            SA_IgnoreTeam = Config.SA_IgnoreTeam,
+        }))
+    end)
+end
+
+local function loadConfig()
+    pcall(function()
+        if not readfile or not isfile then return end
+        if not isfile(ConfigFile) then return end
+        local d = HttpService:JSONDecode(readfile(ConfigFile))
+        for k, v in pairs(d) do
+            if k == "ToggleKey" then
+                local key = Enum.KeyCode[v]
+                if key then Config.ToggleKey = key end
+            elseif Config[k] ~= nil then
+                Config[k] = v
+            end
+        end
+        local t = Themes[Config.ThemeIndex] or Themes[1]
+        Config.Accent, Config.Accent2 = t.A, t.B
+        Config.UIScale = math.clamp(Config.UIScale, 0.3, 1.6)
+    end)
+end
+loadConfig()
+
+-- ═══════════════════ UI KIT ═══════════════════
+local function create(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props or {}) do obj[k] = v end
+    if parent then obj.Parent = parent end
+    return obj
+end
+
+local function tween(obj, info, props)
+    local t = TweenService:Create(obj, info or TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+    t:Play()
+    return t
+end
+
+local function corner(obj, r) return create("UICorner", {CornerRadius = UDim.new(0, r or 10), Parent = obj}) end
+local function round(n, d) local m = 10 ^ (d or 0) return math.floor(n * m + 0.5) / m end
+
+-- Реестры для мгновенной смены темы
+local Gradients   = {}
+local AccentParts = {}
+
+local function gradient(obj, rot, transparency)
+    local g = create("UIGradient", {
+        Color = ColorSequence.new(Config.Accent, Config.Accent2),
+        Rotation = rot or 25,
+        Parent = obj
+    })
+    if transparency then g.Transparency = transparency end
+    table.insert(Gradients, g)
+    return g
+end
+
+local function accentize(obj, prop, useSecond)
+    obj[prop] = useSecond and Config.Accent2 or Config.Accent
+    table.insert(AccentParts, {obj = obj, prop = prop, second = useSecond})
+    return obj
+end
+
+-- Мягкая обводка — без кричащего свечения, очень деликатная
+local function stroke(obj, thickness, transparency)
+    local s = create("UIStroke", {
+        Color = Palette.Line,
+        Thickness = thickness or 1,
+        Transparency = transparency or 0.3,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = obj
+    })
+    return s
+end
+
+-- Акцентный инлайн-градиент stroke (для хайлайтов — еле заметный)
+local function accentStroke(obj, thickness, transparency)
+    local s = create("UIStroke", {
+        Thickness = thickness or 1,
+        Transparency = transparency or 0.55,
+        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+        Parent = obj
+    })
+    gradient(s, 25)
+    return s
+end
+
+-- Тонкая линия-разделитель
+local function divider(parent, pos, size, rot)
+    local d = create("Frame", {
+        Size = size or UDim2.new(1, 0, 0, 1),
+        Position = pos or UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 0.55,
+        BorderSizePixel = 0,
+        Parent = parent
+    })
+    gradient(d, rot or 90)
+    return d
+end
+
+-- Тонкий L-уголок (декоративный элемент в углах)
+local function cornerMark(parent, pos, size, color)
+    local c = create("Frame", {
+        Size = size or UDim2.fromOffset(16, 16),
+        Position = pos,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Parent = parent
+    })
+    -- Горизонтальная часть
+    create("Frame", {
+        Size = UDim2.fromOffset(size and size.X.Offset or 16, 1),
+        BackgroundColor3 = color or Palette.LineSoft,
+        BorderSizePixel = 0,
+        Parent = c
+    })
+    -- Вертикальная часть
+    create("Frame", {
+        Size = UDim2.fromOffset(1, size and size.Y.Offset or 16),
+        BackgroundColor3 = color or Palette.LineSoft,
+        BorderSizePixel = 0,
+        Parent = c
+    })
+    return c
+end
+
+-- Мягкое внутреннее свечение (через полупрозрачный градиент) — сдержанное
+local function innerGlow(parent, transparency)
+    local g = create("Frame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = transparency or 0.92,
+        BorderSizePixel = 0,
+        Parent = parent
+    })
+    gradient(g, 25)
+    return g
+end
+
+-- Тонкая подложка-тень под элементом
+local function softShadow(parent, offset, transparency)
+    local s = create("Frame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        Position = offset or UDim2.fromOffset(0, 4),
+        BackgroundColor3 = Palette.Shadow,
+        BackgroundTransparency = transparency or 0.7,
+        BorderSizePixel = 0,
+        ZIndex = -1,
+        Parent = parent
+    })
+    corner(s, 14)
+    return s
+end
+
+-- ═══════════════════ SAFE PARENT ═══════════════════
+local function getSafeParent()
+    if gethui then
+        local ok, res = pcall(gethui)
+        if ok and res then return res end
+    end
+    local ok = pcall(function()
+        local t = Instance.new("ScreenGui")
+        t.Parent = CoreGui
+        t:Destroy()
+    end)
+    if ok then return CoreGui end
+    return LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local ScreenGui = create("ScreenGui", {
+    Name = "SandreyPremium",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 9999,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    Parent = getSafeParent()
+})
+if syn and syn.protect_gui then pcall(syn.protect_gui, ScreenGui) end
+
+-- ═══════════════════ TOASTS ═══════════════════
+local ToastHolder = create("Frame", {
+    Name = "Toasts",
+    AnchorPoint = Vector2.new(1, 1),
+    Position = UDim2.new(1, -18, 1, -18),
+    Size = UDim2.fromOffset(260, 300),
+    BackgroundTransparency = 1,
+    Parent = ScreenGui
+})
+create("UIListLayout", {
+    Padding = UDim.new(0, 8),
+    VerticalAlignment = Enum.VerticalAlignment.Bottom,
+    HorizontalAlignment = Enum.HorizontalAlignment.Right,
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    Parent = ToastHolder
+})
+
+local function notify(text, duration)
+    local card = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundColor3 = Palette.PanelAlt,
+        BackgroundTransparency = 0.06,
+        Parent = ToastHolder
+    })
+    corner(card, 12)
+    stroke(card, 1, 0.4)
+
+    -- Тонкая акцентная линия слева
+    local bar = create("Frame", {
+        Size = UDim2.fromOffset(1, 22),
+        Position = UDim2.new(0, 10, 0.5, -11),
+        BackgroundTransparency = 0.2,
+        BorderSizePixel = 0,
+        Parent = card
+    })
+    corner(bar, 1); gradient(bar, 90)
+
+    create("UIPadding", {
+        PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 12),
+        PaddingLeft = UDim.new(0, 20), PaddingRight = UDim.new(0, 14), Parent = card
+    })
+    create("TextLabel", {
+        Text = text, Font = Enum.Font.GothamMedium, TextSize = 12,
+        TextColor3 = Palette.Text, TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1, Parent = card
+    })
+    card.BackgroundTransparency = 1
+    tween(card, TweenInfo.new(0.25), {BackgroundTransparency = 0.06})
+    task.delay(duration or 2.5, function()
+        tween(card, TweenInfo.new(0.25), {BackgroundTransparency = 1})
+        task.wait(0.28)
+        card:Destroy()
+    end)
+end
+
+-- ═══════════════════ MSK CLOCK + AVATAR ═══════════════════
+local function moscowTime()
+    local t = os.date("!*t", os.time() + 3 * 3600)
+    return string.format("%02d:%02d", t.hour, t.min)
+end
+
+local function avatarUrl(userId)
+    return "rbxthumb://type=AvatarHeadShot&id=" .. tostring(userId) .. "&w=150&h=150"
+end
+
+local ClockLabels = {}
+task.spawn(function()
+    while ScreenGui.Parent do
+        local now = moscowTime()
+        for _, lbl in ipairs(ClockLabels) do
+            if lbl.Parent then lbl.Text = now end
+        end
+        task.wait(1)
+    end
+end)
+
+-- ═══════════════════ DRAG HELPER ═══════════════════
+local function makeDraggable(frame, handle, onClick, lockFunc)
+    handle = handle or frame
+    local dragging, moved, startPos, startInput = false, false, nil, nil
+    handle.InputBegan:Connect(function(input)
+        if lockFunc and lockFunc() then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging, moved = true, false
+            startInput = input.Position
+            startPos = frame.Position
+            local conn
+            conn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    conn:Disconnect()
+                    if not moved and onClick then onClick() end
+                end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then return end
+        if lockFunc and lockFunc() then dragging = false return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - startInput
+            if delta.Magnitude > 4 then moved = true end
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- ═══════════════════ LAUNCHER PILL ═══════════════════
+local Pill = create("Frame", {
+    Name = "Launcher",
+    Size = UDim2.fromOffset(220, 52),
+    Position = UDim2.new(0, 24, 0, 96),
+    BackgroundColor3 = Palette.BG,
+    BorderSizePixel = 0,
+    Parent = ScreenGui
+})
+corner(Pill, 26)
+stroke(Pill, 1, 0.4)
+innerGlow(Pill, 0.93)
+
+-- Деликатный "shimmer" — медленный градиентный блик
+local PillShimmer = create("Frame", {
+    Size = UDim2.fromOffset(50, 52),
+    Position = UDim2.fromOffset(-50, 0),
+    BackgroundTransparency = 0.9,
+    BorderSizePixel = 0,
+    Parent = Pill
+})
+corner(PillShimmer, 0)
+create("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(255, 255, 255)),
+    }),
+    Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0,   1),
+        NumberSequenceKeypoint.new(0.5, 0.88),
+        NumberSequenceKeypoint.new(1,   1),
+    }),
+    Rotation = 20,
+    Parent = PillShimmer
+})
+task.spawn(function()
+    while PillShimmer.Parent do
+        PillShimmer.Position = UDim2.fromOffset(-50, 0)
+        tween(PillShimmer, TweenInfo.new(3.6, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+            Position = UDim2.fromOffset(230, 0)
+        })
+        task.wait(5)
+    end
+end)
+
+local AvatarHolder = create("Frame", {
+    Size = UDim2.fromOffset(38, 38), Position = UDim2.new(0, 7, 0.5, -19),
+    BackgroundColor3 = Palette.PanelAlt, BorderSizePixel = 0, Parent = Pill
+})
+corner(AvatarHolder, 19)
+stroke(AvatarHolder, 1, 0.45)
+
+local Avatar = create("ImageLabel", {
+    Size = UDim2.new(1, -4, 1, -4), Position = UDim2.fromOffset(2, 2),
+    BackgroundTransparency = 1, Image = avatarUrl(LocalPlayer.UserId),
+    Parent = AvatarHolder
+})
+corner(Avatar, 17)
+
+-- Индикатор онлайна — очень сдержанный
+local Dot = create("Frame", {
+    Size = UDim2.fromOffset(9, 9), Position = UDim2.new(1, -8, 1, -8),
+    BackgroundColor3 = Color3.fromRGB(130, 195, 140),
+    BorderSizePixel = 0, Parent = AvatarHolder
+})
+corner(Dot, 5)
+create("UIStroke", {Color = Palette.BG, Thickness = 2, Parent = Dot})
+
+-- Мягкая пульсация точки
+task.spawn(function()
+    while Dot.Parent do
+        tween(Dot, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Size = UDim2.fromOffset(11, 11),
+            Position = UDim2.new(1, -9, 1, -9),
+            BackgroundTransparency = 0.15,
+        })
+        task.wait(1.4)
+        tween(Dot, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Size = UDim2.fromOffset(9, 9),
+            Position = UDim2.new(1, -8, 1, -8),
+            BackgroundTransparency = 0,
+        })
+        task.wait(1.4)
+    end
+end)
+
+local PillName = create("TextLabel", {
+    Text = LocalPlayer.DisplayName,
+    Font = Enum.Font.GothamBold, TextSize = 13,
+    TextColor3 = Palette.Text,
+    TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+    Size = UDim2.new(0, 100, 0, 16), Position = UDim2.new(0, 53, 0, 10),
+    BackgroundTransparency = 1, Parent = Pill
+})
+
+local PillSub = create("TextLabel", {
+    Text = "PREMIUM · v2.1",
+    Font = Enum.Font.GothamBold, TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Size = UDim2.new(0, 100, 0, 12), Position = UDim2.new(0, 53, 0, 27),
+    BackgroundTransparency = 1, Parent = Pill
+})
+accentize(PillSub, "TextColor3", true)
+
+local PillClock = create("TextLabel", {
+    Text = moscowTime(),
+    Font = Enum.Font.GothamBlack, TextSize = 17,
+    TextColor3 = Palette.Text,
+    TextXAlignment = Enum.TextXAlignment.Right,
+    Size = UDim2.fromOffset(56, 18), Position = UDim2.new(1, -64, 0, 9),
+    BackgroundTransparency = 1, Parent = Pill
+})
+table.insert(ClockLabels, PillClock)
+
+create("TextLabel", {
+    Text = "МСК", Font = Enum.Font.GothamBold, TextSize = 8,
+    TextColor3 = Palette.TextMute,
+    TextXAlignment = Enum.TextXAlignment.Right,
+    Size = UDim2.fromOffset(56, 10), Position = UDim2.new(1, -64, 0, 28),
+    BackgroundTransparency = 1, Parent = Pill
+})
+
+local PillChevron = create("TextLabel", {
+    Text = "‹", Font = Enum.Font.GothamBold, TextSize = 20,
+    TextColor3 = Palette.TextDim,
+    Size = UDim2.fromOffset(16, 52), Position = UDim2.new(1, -22, 0, 0),
+    BackgroundTransparency = 1, Parent = Pill
+})
+
+-- ═══════════════════ LOCK BUTTON ON PILL ═══════════════════
+local pillLocked = false
+
+local PillLock = create("TextButton", {
+    Text = "🔓",
+    Font = Enum.Font.GothamBold, TextSize = 11,
+    TextColor3 = Palette.Text,
+    Size = UDim2.fromOffset(20, 20),
+    AnchorPoint = Vector2.new(1, 1),
+    Position = UDim2.new(1, -7, 1, -7),
+    BackgroundColor3 = Palette.PanelAlt,
+    AutoButtonColor = false,
+    BorderSizePixel = 0,
+    Parent = Pill
+})
+corner(PillLock, 10)
+stroke(PillLock, 1, 0.5)
+
+PillLock.MouseEnter:Connect(function()
+    if not pillLocked then
+        tween(PillLock, TweenInfo.new(0.15), {BackgroundColor3 = Palette.PanelSoft})
+    end
+end)
+PillLock.MouseLeave:Connect(function()
+    tween(PillLock, TweenInfo.new(0.15), {BackgroundColor3 = pillLocked and Color3.fromRGB(38, 22, 24) or Palette.PanelAlt})
+end)
+
+PillLock.MouseButton1Click:Connect(function()
+    pillLocked = not pillLocked
+    PillLock.Text = pillLocked and "🔒" or "🔓"
+    local target = pillLocked and Color3.fromRGB(38, 22, 24) or Palette.PanelAlt
+    tween(PillLock, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        BackgroundColor3 = target,
+        Size = UDim2.fromOffset(24, 24)
+    })
+    task.delay(0.22, function()
+        if PillLock.Parent then
+            tween(PillLock, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = UDim2.fromOffset(20, 20)
+            })
+        end
+    end)
+    notify(pillLocked and "Панель заблокирована" or "Панель разблокирована", 1.8)
+end)
+
+-- ═══════════════════ MAIN WINDOW ═══════════════════
+local MainFrame = create("Frame", {
+    Name = "Main",
+    Size = UDim2.fromOffset(700, 462),
+    Position = UDim2.new(0.5, 0, 0.5, 0),
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    BackgroundColor3 = Palette.BG,
+    BorderSizePixel = 0,
+    Visible = true,
+    Parent = ScreenGui
+})
+corner(MainFrame, 18)
+stroke(MainFrame, 1, 0.25)
+local UIScaleInst = create("UIScale", {Scale = Config.UIScale, Parent = MainFrame})
+
+-- Очень сдержанное фоновое свечение (еле видимое)
+local BgGlow = create("ImageLabel", {
+    AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -60),
+    Size = UDim2.new(1.1, 0, 0, 240), BackgroundTransparency = 1,
+    Image = "rbxassetid://6014261993", ImageTransparency = 0.92,
+    ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450),
+    ZIndex = 0, Parent = MainFrame
+})
+accentize(BgGlow, "ImageColor3")
+
+-- ═══════════════════ ORNAMENTS — L-УГОЛКИ ═══════════════════
+-- Вместо звёздочек — тонкие L-образные уголки в углах окна
+local CMarkTL = cornerMark(MainFrame, UDim2.fromOffset(12, 66), UDim2.fromOffset(18, 18))
+local CMarkTR = cornerMark(MainFrame, UDim2.fromOffset(0, 66),  UDim2.fromOffset(18, 18))
+CMarkTR.AnchorPoint = Vector2.new(1, 0)
+CMarkTR.Position = UDim2.new(1, -12, 0, 66)
+-- разворачиваем правый уголок
+for _, c in ipairs(CMarkTR:GetChildren()) do
+    if c.Size.X.Offset > c.Size.Y.Offset then -- горизонтальная часть
+        c.AnchorPoint = Vector2.new(1, 0)
+        c.Position = UDim2.new(1, 0, 0, 0)
+    else
+        c.AnchorPoint = Vector2.new(1, 0)
+        c.Position = UDim2.new(1, 0, 0, 0)
+    end
+end
+
+local CMarkBL = cornerMark(MainFrame, UDim2.fromOffset(12, 0), UDim2.fromOffset(18, 18))
+CMarkBL.AnchorPoint = Vector2.new(0, 1)
+CMarkBL.Position = UDim2.new(0, 12, 1, -12)
+for _, c in ipairs(CMarkBL:GetChildren()) do
+    if c.Size.X.Offset > c.Size.Y.Offset then
+        c.AnchorPoint = Vector2.new(0, 1)
+        c.Position = UDim2.new(0, 0, 1, 0)
+    else
+        c.AnchorPoint = Vector2.new(0, 1)
+        c.Position = UDim2.new(0, 0, 1, -18)
+    end
+end
+
+local CMarkBR = cornerMark(MainFrame, UDim2.fromOffset(0, 0), UDim2.fromOffset(18, 18))
+CMarkBR.AnchorPoint = Vector2.new(1, 1)
+CMarkBR.Position = UDim2.new(1, -12, 1, -12)
+for _, c in ipairs(CMarkBR:GetChildren()) do
+    if c.Size.X.Offset > c.Size.Y.Offset then
+        c.AnchorPoint = Vector2.new(1, 1)
+        c.Position = UDim2.new(1, 0, 1, 0)
+    else
+        c.AnchorPoint = Vector2.new(1, 1)
+        c.Position = UDim2.new(1, 0, 1, -18)
+    end
+end
+
+-- Тонкая горизонтальная линия-разделитель под TitleBar
+local Divider = create("Frame", {
+    Size = UDim2.new(1, -32, 0, 1),
+    Position = UDim2.new(0, 16, 0, 56),
+    BackgroundTransparency = 0.78,
+    BorderSizePixel = 0,
+    ZIndex = 2,
+    Parent = MainFrame
+})
+gradient(Divider, 90)
+
+-- Тонкая вертикальная полоска сайдбара
+local SideStripe = create("Frame", {
+    Size = UDim2.new(0, 1, 1, -80),
+    Position = UDim2.new(0, 160, 0, 66),
+    BackgroundTransparency = 0.82,
+    BorderSizePixel = 0,
+    Parent = MainFrame
+})
+gradient(SideStripe, 90)
+
+-- Title bar
+local TitleBar = create("Frame", {Name = "TitleBar", Size = UDim2.new(1, 0, 0, 56), BackgroundTransparency = 1, Parent = MainFrame})
+local TitleTint = create("Frame", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 0.94, BorderSizePixel = 0, Parent = TitleBar})
+corner(TitleTint, 18); gradient(TitleTint, 15)
+
+-- Деликатный бегущий блик по TitleBar
+local TitleShimmer = create("Frame", {
+    Size = UDim2.fromOffset(100, 56),
+    Position = UDim2.fromOffset(-100, 0),
+    BackgroundTransparency = 0.95,
+    BorderSizePixel = 0,
+    Parent = TitleBar
+})
+create("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(255, 255, 255)),
+    }),
+    Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0,   1),
+        NumberSequenceKeypoint.new(0.5, 0.85),
+        NumberSequenceKeypoint.new(1,   1),
+    }),
+    Rotation = 20,
+    Parent = TitleShimmer
+})
+task.spawn(function()
+    while TitleShimmer.Parent do
+        TitleShimmer.Position = UDim2.fromOffset(-100, 0)
+        tween(TitleShimmer, TweenInfo.new(5.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+            Position = UDim2.new(1, 0, 0, 0)
+        })
+        task.wait(7)
+    end
+end)
+
+local TitleAvatarBox = create("Frame", {
+    Size = UDim2.fromOffset(34, 34), Position = UDim2.new(0, 14, 0.5, -17),
+    BackgroundColor3 = Palette.PanelAlt, BorderSizePixel = 0, Parent = TitleBar
+})
+corner(TitleAvatarBox, 17); stroke(TitleAvatarBox, 1, 0.45)
+local TitleAvatar = create("ImageLabel", {
+    Size = UDim2.new(1, -4, 1, -4), Position = UDim2.fromOffset(2, 2),
+    BackgroundTransparency = 1, Image = avatarUrl(LocalPlayer.UserId), Parent = TitleAvatarBox
+})
+corner(TitleAvatar, 15)
+
+local BrandLabel = create("TextLabel", {
+    Text = "SANDREY", Font = Enum.Font.GothamBlack, TextSize = 17,
+    TextColor3 = Palette.Text,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    Size = UDim2.new(0, 120, 0, 18), Position = UDim2.new(0, 56, 0, 11),
+    BackgroundTransparency = 1, Parent = TitleBar
+})
+gradient(BrandLabel, 20)
+
+local UserLabel = create("TextLabel", {
+    Text = LocalPlayer.DisplayName .. "  ·  @" .. LocalPlayer.Name,
+    Font = Enum.Font.GothamMedium, TextSize = 10,
+    TextColor3 = Palette.TextDim,
+    TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+    Size = UDim2.new(0, 190, 0, 12), Position = UDim2.new(0, 56, 0, 30),
+    BackgroundTransparency = 1, Parent = TitleBar
+})
+
+local ClockBox = create("Frame", {
+    Size = UDim2.fromOffset(74, 32), Position = UDim2.new(1, -182, 0.5, -16),
+    BackgroundColor3 = Palette.PanelAlt, BorderSizePixel = 0, Parent = TitleBar
+})
+corner(ClockBox, 10); stroke(ClockBox, 1, 0.5)
+local TitleClock = create("TextLabel", {
+    Text = moscowTime(), Font = Enum.Font.GothamBlack, TextSize = 15,
+    TextColor3 = Palette.Text,
+    Size = UDim2.new(1, 0, 0, 16), Position = UDim2.new(0, 0, 0, 3),
+    BackgroundTransparency = 1, Parent = ClockBox
+})
+table.insert(ClockLabels, TitleClock)
+create("TextLabel", {
+    Text = "МСК", Font = Enum.Font.GothamBold, TextSize = 8,
+    TextColor3 = Palette.TextMute,
+    Size = UDim2.new(1, 0, 0, 10), Position = UDim2.new(0, 0, 0, 19),
+    BackgroundTransparency = 1, Parent = ClockBox
+})
+
+local function titleButton(txt, xOffset, size)
+    local b = create("TextButton", {
+        Text = txt, Font = Enum.Font.GothamBold, TextSize = size or 18,
+        TextColor3 = Palette.TextDim,
+        Size = UDim2.fromOffset(34, 34), Position = UDim2.new(1, xOffset, 0.5, -17),
+        BackgroundColor3 = Palette.PanelAlt, AutoButtonColor = false,
+        Parent = TitleBar
+    })
+    corner(b, 11)
+    stroke(b, 1, 0.5)
+    b.MouseEnter:Connect(function() tween(b, nil, {BackgroundColor3 = Palette.PanelSoft, TextColor3 = Palette.Text}) end)
+    b.MouseLeave:Connect(function() tween(b, nil, {BackgroundColor3 = Palette.PanelAlt, TextColor3 = Palette.TextDim}) end)
+    return b
+end
+
+-- Две солидные кнопки: свернуть в пилюлю · закрыть полностью
+local HideBtn  = titleButton("▾", -64, 17)
+local CloseBtn = titleButton("×", -18, 22)
+
+-- Sidebar
+local Sidebar = create("Frame", {
+    Name = "Sidebar", Size = UDim2.new(0, 152, 1, -66), Position = UDim2.new(0, 8, 0, 60),
+    BackgroundColor3 = Palette.Panel, BorderSizePixel = 0, Parent = MainFrame
+})
+corner(Sidebar, 14)
+stroke(Sidebar, 1, 0.55)
+create("UIListLayout", {
+    Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center,
+    SortOrder = Enum.SortOrder.LayoutOrder, Parent = Sidebar
+})
+create("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), Parent = Sidebar})
+
+local Content = create("Frame", {
+    Name = "Content", Size = UDim2.new(1, -180, 1, -70), Position = UDim2.new(0, 170, 0, 62),
+    BackgroundTransparency = 1, Parent = MainFrame
+})
+local PageFolder = create("Folder", {Name = "Pages", Parent = Content})
+
+makeDraggable(MainFrame, TitleBar)
+
+-- ═══════════════════ TABS ═══════════════════
+local Tabs, CurrentTab = {}, nil
+
+local function selectTab(tab)
+    if CurrentTab == tab then return end
+    for _, t in ipairs(Tabs) do
+        t.Page.Visible = false
+        t.Highlight.BackgroundTransparency = 1
+        t.Glow.Enabled = false
+        tween(t.Button, nil, {BackgroundColor3 = Palette.Panel})
+        tween(t.Label, nil, {TextColor3 = Palette.TextDim})
+    end
+    tab.Page.Visible = true
+    CurrentTab = tab
+    tab.Highlight.BackgroundTransparency = 0
+    tab.Glow.Enabled = true
+    tween(tab.Button, nil, {BackgroundColor3 = Palette.PanelAlt})
+    tween(tab.Label, nil, {TextColor3 = Palette.Text})
+end
+
+local function addTab(name, icon, badge)
+    local btn = create("TextButton", {
+        Name = name, Text = "", Size = UDim2.new(1, -16, 0, 36),
+        BackgroundColor3 = Palette.Panel, AutoButtonColor = false, Parent = Sidebar
+    })
+    corner(btn, 11)
+
+    local hl = create("Frame", {
+        Size = UDim2.fromOffset(1, 18), Position = UDim2.new(0, 0, 0.5, -9),
+        BackgroundTransparency = 1, BorderSizePixel = 0, Parent = btn
+    })
+    corner(hl, 1); gradient(hl, 90)
+
+    local lbl = create("TextLabel", {
+        Text = icon .. "   " .. name, Font = Enum.Font.GothamBold, TextSize = 12,
+        TextColor3 = Palette.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 13, 0, 0),
+        BackgroundTransparency = 1, Parent = btn
+    })
+
+    local g = create("UIStroke", {Color = Palette.Line, Thickness = 1, Transparency = 0.6, Enabled = false, Parent = btn})
+
+    if badge then
+        local b = create("TextLabel", {
+            Text = badge, Font = Enum.Font.GothamBold, TextSize = 8,
+            TextColor3 = Palette.TextDark,
+            Size = UDim2.fromOffset(30, 14), Position = UDim2.new(1, -38, 0.5, -7),
+            BackgroundColor3 = Color3.fromRGB(230, 232, 238), Parent = btn
+        })
+        corner(b, 7); gradient(b, 20)
+    end
+
+    local page = create("ScrollingFrame", {
+        Name = name .. "Page", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1,
+        BorderSizePixel = 0, ScrollBarThickness = 3, Visible = false,
+        AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(),
+        Parent = PageFolder
+    })
+    accentize(page, "ScrollBarImageColor3")
+    create("UIListLayout", {Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page})
+    create("UIPadding", {
+        PaddingTop = UDim.new(0, 2), PaddingBottom = UDim.new(0, 14),
+        PaddingLeft = UDim.new(0, 2), PaddingRight = UDim.new(0, 10), Parent = page
+    })
+
+    local tab = {Button = btn, Label = lbl, Page = page, Highlight = hl, Glow = g}
+    table.insert(Tabs, tab)
+
+    btn.MouseButton1Click:Connect(function() selectTab(tab) end)
+    btn.MouseEnter:Connect(function()
+        if CurrentTab ~= tab then tween(btn, nil, {BackgroundColor3 = Palette.PanelAlt}) end
+    end)
+    btn.MouseLeave:Connect(function()
+        if CurrentTab ~= tab then tween(btn, nil, {BackgroundColor3 = Palette.Panel}) end
+    end)
+    return page
+end
+
+-- ═══════════════════ COMPONENTS ═══════════════════
+local function addSection(parent, title, subtitle)
+    local s = create("Frame", {
+        Name = title, Size = UDim2.new(1, -4, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundColor3 = Palette.Panel, BorderSizePixel = 0, Parent = parent
+    })
+    corner(s, 14)
+    stroke(s, 1, 0.55)
+
+    -- Очень деликатная внутренняя подсветка сверху
+    local topGlow = create("Frame", {
+        Size = UDim2.new(1, -40, 0, 1),
+        Position = UDim2.new(0.5, 0, 0, 0),
+        AnchorPoint = Vector2.new(0.5, 0),
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
+        Parent = s
+    })
+    corner(topGlow, 1); gradient(topGlow, 90)
+
+    create("UIPadding", {
+        PaddingTop = UDim.new(0, 14), PaddingBottom = UDim.new(0, 16),
+        PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16), Parent = s
+    })
+    create("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, Parent = s})
+
+    -- Маленький акцентный маркер перед заголовком
+    local headRow = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 16),
+        BackgroundTransparency = 1, Parent = s
+    })
+    local marker = create("Frame", {
+        Size = UDim2.fromOffset(2, 12),
+        Position = UDim2.new(0, 0, 0.5, -6),
+        BackgroundTransparency = 0.1,
+        BorderSizePixel = 0, Parent = headRow
+    })
+    corner(marker, 1); gradient(marker, 90)
+
+    local head = create("TextLabel", {
+        Text = title, Font = Enum.Font.GothamBlack, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1, -12, 1, 0),
+        Position = UDim2.fromOffset(10, 0),
+        BackgroundTransparency = 1,
+        TextColor3 = Palette.Text, Parent = headRow
+    })
+
+    if subtitle then
+        create("TextLabel", {
+            Text = subtitle, Font = Enum.Font.Gotham, TextSize = 10.5,
+            TextColor3 = Palette.TextDim, TextWrapped = true,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1, Parent = s
+        })
+    end
+    return s
+end
+
+local function addLabel(parent, text, color)
+    return create("TextLabel", {
+        Text = text, Font = Enum.Font.GothamMedium, TextSize = 11.5,
+        TextColor3 = color or Palette.TextDim, TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1, Parent = parent
+    })
+end
+
+local function addButton(parent, text, callback)
+    -- Основной корпус кнопки
+    local btn = create("TextButton", {
+        Text = "", Size = UDim2.new(1, 0, 0, 38),
+        BackgroundColor3 = Color3.fromRGB(30, 32, 38), AutoButtonColor = false, Parent = parent
+    })
+    corner(btn, 11)
+
+    -- Вертикальный градиент корпуса (сверху светлее, снизу темнее) — объём
+    local bodyGrad = create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,   Color3.fromRGB(42, 44, 52)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(30, 32, 38)),
+            ColorSequenceKeypoint.new(1,   Color3.fromRGB(22, 23, 28)),
+        }),
+        Parent = btn
+    })
+
+    -- Тонкая светлая линия сверху (премиальный блик)
+    local topShine = create("Frame", {
+        Size = UDim2.new(1, -24, 0, 1),
+        Position = UDim2.new(0.5, 0, 0, 1),
+        AnchorPoint = Vector2.new(0.5, 0),
+        BackgroundTransparency = 0.65,
+        BorderSizePixel = 0,
+        Parent = btn
+    })
+    corner(topShine, 1)
+    gradient(topShine, 90)
+
+    -- Обводка — видимая, солидная
+    stroke(btn, 1, 0.3)
+
+    -- Мягкая внешняя тень
+    local shadow = create("Frame", {
+        Size = UDim2.new(1, -6, 1, 0),
+        Position = UDim2.new(0, 3, 0, 4),
+        BackgroundColor3 = Palette.Shadow,
+        BackgroundTransparency = 0.82,
+        BorderSizePixel = 0, ZIndex = -1,
+        Parent = btn
+    })
+    corner(shadow, 11)
+
+    -- Текст
+    local lbl = create("TextLabel", {
+        Text = text, Font = Enum.Font.GothamBold, TextSize = 12,
+        TextColor3 = Palette.Text, Size = UDim2.new(1, -24, 1, 0),
+        Position = UDim2.fromOffset(12, 0),
+        BackgroundTransparency = 1, Parent = btn
+    })
+
+    -- Маленькая акцентная точка-маркер слева
+    local dot = create("Frame", {
+        Size = UDim2.fromOffset(3, 12),
+        BackgroundTransparency = 0.15,
+        BorderSizePixel = 0,
+        Parent = btn
+    })
+    corner(dot, 1)
+    gradient(dot, 90)
+
+    -- Hover — корпус становится светлее + тень усиливается
+    btn.MouseEnter:Connect(function()
+        tween(bodyGrad, TweenInfo.new(0.22), {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0,   Color3.fromRGB(52, 55, 64)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(38, 40, 48)),
+                ColorSequenceKeypoint.new(1,   Color3.fromRGB(28, 29, 35)),
+            })
+        })
+        tween(shadow, TweenInfo.new(0.22), {BackgroundTransparency = 0.75})
+    end)
+    btn.MouseLeave:Connect(function()
+        tween(bodyGrad, TweenInfo.new(0.22), {
+            Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0,   Color3.fromRGB(42, 44, 52)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(30, 32, 38)),
+                ColorSequenceKeypoint.new(1,   Color3.fromRGB(22, 23, 28)),
+            })
+        })
+        tween(shadow, TweenInfo.new(0.22), {BackgroundTransparency = 0.82})
+    end)
+
+    -- Click — лёгкое нажатие
+    btn.MouseButton1Down:Connect(function()
+        tween(btn, TweenInfo.new(0.06), {Size = UDim2.new(1, -4, 0, 36)})
+        tween(shadow, TweenInfo.new(0.06), {Position = UDim2.new(0, 2, 0, 2)})
+    end)
+    btn.MouseButton1Up:Connect(function()
+        tween(btn, TweenInfo.new(0.1, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 38)})
+        tween(shadow, TweenInfo.new(0.1), {Position = UDim2.new(0, 3, 0, 4)})
+    end)
+    btn.MouseButton1Click:Connect(function()
+        callback()
+    end)
+    return btn
+end
+
+local function addToggle(parent, labelText, default, callback)
+    local c = create("Frame", {Size = UDim2.new(1, 0, 0, 36), BackgroundTransparency = 1, Parent = parent})
+
+    -- Лейбл слева
+    create("TextLabel", {
+        Text = labelText, Font = Enum.Font.GothamSemibold, TextSize = 12,
+        TextColor3 = Palette.Text, TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1, -64, 1, 0), BackgroundTransparency = 1, Parent = c
+    })
+
+    -- Контейнер для трека
+    local trackWrap = create("Frame", {
+        Size = UDim2.fromOffset(54, 30),
+        Position = UDim2.new(1, -54, 0.5, -15),
+        BackgroundTransparency = 1, Parent = c
+    })
+
+    -- Внешнее мягкое свечение (акцентное, появляется при ON)
+    local glow = create("Frame", {
+        Size = UDim2.fromOffset(68, 44),
+        Position = UDim2.fromOffset(-7, -7),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 0,
+        Parent = trackWrap
+    })
+    corner(glow, 22)
+    gradient(glow, 20)
+
+    -- Трек (кнопка)
+    local track = create("TextButton", {
+        Text = "", AutoButtonColor = false,
+        Size = UDim2.fromOffset(50, 26),
+        Position = UDim2.fromOffset(2, 2),
+        BackgroundColor3 = Color3.fromRGB(24, 25, 30),
+        ZIndex = 2,
+        Parent = trackWrap
+    })
+    corner(track, 13)
+    stroke(track, 1, 0.4)
+
+    -- Градиентная подложка (акцент при ON)
+    local fillG = create("Frame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = default and 0.55 or 1,
+        BorderSizePixel = 0, ZIndex = 2,
+        Parent = track
+    })
+    corner(fillG, 13); gradient(fillG, 20)
+
+    -- Тонкая внутренняя светлая линия сверху трека (блик)
+    local trackShine = create("Frame", {
+        Size = UDim2.new(1, -16, 0, 1),
+        Position = UDim2.new(0.5, 0, 0, 2),
+        AnchorPoint = Vector2.new(0.5, 0),
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0, ZIndex = 3,
+        Parent = track
+    })
+    corner(trackShine, 1)
+    gradient(trackShine, 90)
+
+    -- Knob — россышнее: градиент, внешнее кольцо, тень
+    local knob = create("Frame", {
+        Size = UDim2.fromOffset(20, 20), ZIndex = 4,
+        Position = default and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 3, 0.5, -10),
+        BackgroundColor3 = Color3.fromRGB(235, 237, 243), Parent = track
+    })
+    corner(knob, 10)
+    -- Градиент корпуса knob (сверху светлее)
+    create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,   Color3.fromRGB(245, 247, 252)),
+            ColorSequenceKeypoint.new(1,   Color3.fromRGB(185, 188, 198)),
+        }),
+        Parent = knob
+    })
+    -- Внешнее кольцо — акцентный градиент
+    accentStroke(knob, 1, 0.5)
+    -- Мягкая тень под knob
+    local kShadow = create("Frame", {
+        Size = UDim2.fromOffset(18, 18),
+        Position = UDim2.fromOffset(1, 3),
+        BackgroundColor3 = Palette.Shadow,
+        BackgroundTransparency = 0.6,
+        BorderSizePixel = 0, ZIndex = 3,
+        Parent = track
+    })
+    corner(kShadow, 9)
+    -- Центральная акцентная точка
+    local kDot = create("Frame", {
+        Size = UDim2.fromOffset(4, 4),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        BackgroundTransparency = 0.3,
+        BorderSizePixel = 0, ZIndex = 5,
+        Parent = knob
+    })
+    corner(kDot, 2)
+    accentize(kDot, "BackgroundColor3")
+
+    local state = default
+    local function render(anim)
+        local info = anim and TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out) or TweenInfo.new(0)
+        local knobPos = state and UDim2.new(1, -22, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
+        tween(knob, info, {Position = knobPos})
+        tween(kShadow, info, {
+            Position = state and UDim2.new(1, -21, 0.5, -7) or UDim2.new(0, 4, 0.5, -7)
+        })
+        tween(fillG, TweenInfo.new(0.22), {BackgroundTransparency = state and 0.55 or 1})
+        tween(glow,  TweenInfo.new(0.22), {BackgroundTransparency = state and 0.88 or 1})
+    end
+
+    track.MouseEnter:Connect(function()
+        if not state then
+            tween(track, nil, {BackgroundColor3 = Color3.fromRGB(32, 34, 40)})
+        end
+    end)
+    track.MouseLeave:Connect(function()
+        tween(track, nil, {BackgroundColor3 = Color3.fromRGB(24, 25, 30)})
+    end)
+
+    track.MouseButton1Click:Connect(function()
+        state = not state
+        render(true)
+        callback(state)
+    end)
+    render(false)
+    return function(v) state = v render(false) end
+end
+
+local function addSlider(parent, labelText, min, max, default, callback, isInt, suffix)
+    local c = create("Frame", {Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1, Parent = parent})
+    create("TextLabel", {
+        Text = labelText, Font = Enum.Font.GothamSemibold, TextSize = 11.5,
+        TextColor3 = Palette.Text, TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1, -64, 0, 16), BackgroundTransparency = 1, Parent = c
+    })
+    local val = create("TextLabel", {
+        Text = tostring(default), Font = Enum.Font.GothamBlack, TextSize = 11.5,
+        TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0, 64, 0, 16),
+        Position = UDim2.new(1, -64, 0, 0), BackgroundTransparency = 1,
+        TextColor3 = Palette.Text, Parent = c
+    })
+    accentize(val, "TextColor3", true)
+
+    -- Трек слайдера (более выраженный, с внутренним свечением)
+    local track = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 6), Position = UDim2.new(0, 0, 0, 28),
+        BackgroundColor3 = Color3.fromRGB(22, 23, 28), BorderSizePixel = 0, Parent = c
+    })
+    corner(track, 3)
+    stroke(track, 1, 0.7)
+
+    -- Тонкая светлая линия-блик сверху трека
+    local trackShine = create("Frame", {
+        Size = UDim2.new(1, -8, 0, 1),
+        Position = UDim2.new(0.5, 0, 0, 1),
+        AnchorPoint = Vector2.new(0.5, 0),
+        BackgroundTransparency = 0.8,
+        BorderSizePixel = 0,
+        Parent = track
+    })
+    corner(trackShine, 1)
+    gradient(trackShine, 90)
+
+    local a0 = math.clamp((default - min) / (max - min), 0, 1)
+
+    -- Заполнение — акцентный градиент с внутренним свечением
+    local fill = create("Frame", {Size = UDim2.new(a0, 0, 1, 0), BorderSizePixel = 0, Parent = track})
+    corner(fill, 3); gradient(fill, 0)
+    -- Верхний блик заполнения
+    local fillShine = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 1),
+        Position = UDim2.new(0, 0, 0, 1),
+        BackgroundTransparency = 0.4,
+        BorderSizePixel = 0,
+        Parent = fill
+    })
+    corner(fillShine, 1)
+    create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new(Color3.fromRGB(255, 255, 255)),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,   0.5),
+            NumberSequenceKeypoint.new(0.5, 0.8),
+            NumberSequenceKeypoint.new(1,   1),
+        }),
+        Parent = fillShine
+    })
+
+    -- Мягкое акцентное свечение под knob (появляется при hover/drag)
+    local knobAura = create("Frame", {
+        Size = UDim2.fromOffset(36, 36),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(a0, 0, 0.5, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Parent = track
+    })
+    corner(knobAura, 18); gradient(knobAura, 0)
+
+    -- Роскошный knob: крупнее, градиент корпуса, акцентное внешнее кольцо, тень, центральная точка
+    local knob = create("Frame", {
+        Size = UDim2.fromOffset(20, 20),
+        Position = UDim2.new(a0, -10, 0.5, -10),
+        BackgroundColor3 = Color3.fromRGB(235, 237, 243),
+        ZIndex = 3, Parent = track
+    })
+    corner(knob, 10)
+    -- Градиент корпуса knob (сверху светлее — объём)
+    create("UIGradient", {
+        Rotation = 90,
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0,   Color3.fromRGB(248, 250, 255)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(215, 218, 228)),
+            ColorSequenceKeypoint.new(1,   Color3.fromRGB(170, 174, 186)),
+        }),
+        Parent = knob
+    })
+    -- Акцентное внешнее кольцо
+    accentStroke(knob, 1, 0.45)
+    -- Тонкая светлая линия-блик сверху knob
+    local kShine = create("Frame", {
+        Size = UDim2.fromOffset(10, 1),
+        Position = UDim2.new(0.5, 0, 0, 3),
+        AnchorPoint = Vector2.new(0.5, 0),
+        BackgroundTransparency = 0.3,
+        BorderSizePixel = 0, ZIndex = 4,
+        Parent = knob
+    })
+    corner(kShine, 1)
+    -- Центральная акцентная точка-метка
+    local kDot = create("Frame", {
+        Size = UDim2.fromOffset(3, 3),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        BackgroundTransparency = 0.3,
+        BorderSizePixel = 0, ZIndex = 4,
+        Parent = knob
+    })
+    corner(kDot, 2)
+    accentize(kDot, "BackgroundColor3")
+
+    -- Мягкая тень под knob
+    local kShadow = create("Frame", {
+        Size = UDim2.fromOffset(18, 18),
+        Position = UDim2.new(a0, -9, 0.5, -7),
+        BackgroundColor3 = Palette.Shadow,
+        BackgroundTransparency = 0.65,
+        BorderSizePixel = 0, ZIndex = 2,
+        Parent = track
+    })
+    corner(kShadow, 9)
+
+    local function setValue(raw, fire, anim)
+        local alpha = math.clamp((raw - min) / (max - min), 0, 1)
+        local v = min + alpha * (max - min)
+        if isInt then v = math.floor(v + 0.5) end
+        if anim then
+            tween(fill, TweenInfo.new(0.15), {Size = UDim2.new(alpha, 0, 1, 0)})
+            tween(knob,  TweenInfo.new(0.15, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(alpha, -10, 0.5, -10)})
+            tween(kShadow, TweenInfo.new(0.15), {Position = UDim2.new(alpha, -9, 0.5, -7)})
+            tween(knobAura, TweenInfo.new(0.15), {Position = UDim2.new(alpha, 0, 0.5, 0)})
+        else
+            fill.Size = UDim2.new(alpha, 0, 1, 0)
+            knob.Position = UDim2.new(alpha, -10, 0.5, -10)
+            kShadow.Position = UDim2.new(alpha, -9, 0.5, -7)
+            knobAura.Position = UDim2.new(alpha, 0, 0.5, 0)
+        end
+        val.Text = tostring(isInt and math.floor(v) or round(v, 2)) .. (suffix or "")
+        if fire ~= false then callback(v) end
+    end
+
+    local active = false
+    local hovered = false
+
+    -- Hover на knob — увеличение + появление aura
+    knob.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+            hovered = true
+            tween(knob, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(24, 24)})
+            tween(knobAura, TweenInfo.new(0.2), {BackgroundTransparency = 0.82, Size = UDim2.fromOffset(42, 42)})
+        end
+    end)
+    knob.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement then
+            hovered = false
+            if not active then
+                tween(knob, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(20, 20)})
+                tween(knobAura, TweenInfo.new(0.22), {BackgroundTransparency = 1, Size = UDim2.fromOffset(36, 36)})
+            end
+        end
+    end)
+
+    local function upd(input)
+        local alpha = math.clamp((input.Position.X - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1), 0, 1)
+        setValue(min + alpha * (max - min), true, false)
+    end
+    track.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            active = true
+            -- При активном drag — knob крупнее, aura ярче
+            tween(knob, TweenInfo.new(0.15), {Size = UDim2.fromOffset(24, 24)})
+            tween(knobAura, TweenInfo.new(0.15), {BackgroundTransparency = 0.78})
+            upd(i)
+        end
+    end)
+    knob.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            active = true
+            tween(knob, TweenInfo.new(0.15), {Size = UDim2.fromOffset(24, 24)})
+            tween(knobAura, TweenInfo.new(0.15), {BackgroundTransparency = 0.78})
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if active and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then upd(i) end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            active = false
+            if not hovered then
+                tween(knob, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(20, 20)})
+                tween(knobAura, TweenInfo.new(0.25), {BackgroundTransparency = 1, Size = UDim2.fromOffset(36, 36)})
+            end
+        end
+    end)
+    setValue(default, false, false)
+    return function(v) setValue(v, false, true) end
+end
+
+local function addDropdown(parent, labelText, options, defaultIndex, callback)
+    local c = create("Frame", {Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1, ZIndex = 4, Parent = parent})
+    create("TextLabel", {
+        Text = labelText, Font = Enum.Font.GothamSemibold, TextSize = 11.5,
+        TextColor3 = Palette.Text, TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1, -152, 1, 0), BackgroundTransparency = 1, ZIndex = 4, Parent = c
+    })
+    local btn = create("TextButton", {
+        Text = options[defaultIndex] .. "   ▾", Font = Enum.Font.GothamBold, TextSize = 11,
+        TextColor3 = Palette.Text, Size = UDim2.fromOffset(148, 28),
+        Position = UDim2.new(1, -148, 0.5, -14), BackgroundColor3 = Palette.PanelAlt,
+        AutoButtonColor = false, ZIndex = 4, Parent = c
+    })
+    corner(btn, 9); stroke(btn, 1, 0.55)
+
+    local open, list = false, nil
+    local function close()
+        if list then list:Destroy() list = nil end
+        open = false
+        c.Size = UDim2.new(1, 0, 0, 34)
+    end
+    btn.MouseButton1Click:Connect(function()
+        if open then close() return end
+        open = true
+        local h = #options * 26 + 6
+        c.Size = UDim2.new(1, 0, 0, 34 + h + 4)
+        list = create("Frame", {
+            Size = UDim2.fromOffset(148, h), Position = UDim2.new(1, -148, 0, 34),
+            BackgroundColor3 = Palette.PanelAlt, ZIndex = 20, Parent = c
+        })
+        corner(list, 9); stroke(list, 1, 0.5)
+        create("UIListLayout", {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, Parent = list})
+        create("UIPadding", {PaddingTop = UDim.new(0, 3), PaddingLeft = UDim.new(0, 3), PaddingRight = UDim.new(0, 3), Parent = list})
+        for i, opt in ipairs(options) do
+            local item = create("TextButton", {
+                Text = "  " .. opt, Font = Enum.Font.GothamMedium, TextSize = 11,
+                TextColor3 = Palette.TextDim, TextXAlignment = Enum.TextXAlignment.Left,
+                Size = UDim2.new(1, 0, 0, 24), BackgroundColor3 = Palette.PanelAlt,
+                BackgroundTransparency = 1, AutoButtonColor = false, ZIndex = 21, Parent = list
+            })
+            corner(item, 6)
+            item.MouseEnter:Connect(function()
+                item.BackgroundTransparency = 0.3
+                item.TextColor3 = Palette.Text
+            end)
+            item.MouseLeave:Connect(function()
+                item.BackgroundTransparency = 1
+                item.TextColor3 = Palette.TextDim
+            end)
+            item.MouseButton1Click:Connect(function()
+                btn.Text = opt .. "   ▾"
+                close()
+                callback(i, opt)
+            end)
+        end
+    end)
+    return btn
+end
+
+-- ═══════════════════ THEME APPLY ═══════════════════
+local function applyTheme(index)
+    local t = Themes[index] or Themes[1]
+    Config.ThemeIndex = index
+    Config.Accent, Config.Accent2 = t.A, t.B
+    for _, g in ipairs(Gradients) do
+        if g.Parent then g.Color = ColorSequence.new(t.A, t.B) end
+    end
+    for _, e in ipairs(AccentParts) do
+        if e.obj.Parent then e.obj[e.prop] = e.second and t.B or t.A end
+    end
+    saveConfig()
+end
+
+-- ═══════════════════ PAGES ═══════════════════
+local pageInfo     = addTab("Info",     "◈")
+local pageVisuals  = addTab("Visuals",  "◉", "NEW")
+local pageCombat   = addTab("Combat",   "✦", "NEW")
+local pagePlayer   = addTab("Player",   "◍")
+local pageServer   = addTab("Server",   "◎")
+local pageSettings = addTab("Settings", "❖")
+
+-- ─────────── INFO ───────────
+local sWelcome = addSection(pageInfo, "Sandrey Hub", "Премиальный универсальный шаблон для UNC-совместимых инжекторов. Строгий, сдержанный, технологичный.")
+addLabel(sWelcome, "• Visuals — третье лицо без потери управления камерой")
+addLabel(sWelcome, "• Combat — Silent Aim с выбором точки прицела")
+addLabel(sWelcome, "• Тема, масштаб и все настройки сохраняются автоматически")
+
+local sInfo = addSection(pageInfo, "Сессия")
+addLabel(sInfo, "Executor:  " .. getExecutorName())
+addLabel(sInfo, "Аккаунт:   " .. LocalPlayer.DisplayName .. " (@" .. LocalPlayer.Name .. ")")
+addLabel(sInfo, "PlaceId:   " .. tostring(game.PlaceId))
+local lblFps  = addLabel(sInfo, "FPS:  --")
+local lblPing = addLabel(sInfo, "Ping: --")
+local lblTime = addLabel(sInfo, "Время МСК: " .. moscowTime())
+
+local frameAcc, frameCount, lastSample = 0, 0, os.clock()
+RunService.Heartbeat:Connect(function(dt)
+    frameAcc = frameAcc + dt
+    frameCount = frameCount + 1
+    if os.clock() - lastSample >= 0.5 then
+        lastSample = os.clock()
+        local fps = frameCount / math.max(frameAcc, 0.0001)
+        lblFps.Text = "FPS:  " .. tostring(math.floor(fps + 0.5))
+        frameAcc, frameCount = 0, 0
+        local ping = "--"
+        pcall(function()
+            ping = tostring(math.floor(StatsService.Network.ServerStatsItem["Data Ping"]:GetValue())) .. " ms"
+        end)
+        lblPing.Text = "Ping: " .. ping
+        lblTime.Text = "Время МСК: " .. moscowTime()
+    end
+end)
+
+-- ═══════════════════ VISUALS · THIRD PERSON ═══════════════════
+local sCam = addSection(pageVisuals, "Третье лицо",
+    "Камера отводится назад, тело полностью скрывается. Значения принудительно применяются каждый кадр, поэтому вид не слетает во время анимаций и перезарядки.")
+
+local TP = {
+    active = false,
+    touched = {},
+}
+
+local function forEachCharPart(char, fn)
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("BasePart") or v:IsA("Decal") or v:IsA("Texture") then
+            local inTool = v:FindFirstAncestorWhichIsA("Tool") ~= nil
+            fn(v, inTool)
+        end
+    end
+end
+
+local function hideBody(char)
+    forEachCharPart(char, function(v, inTool)
+        if inTool and not Config.TP_HideTool then return end
+        if v.LocalTransparencyModifier ~= 1 then
+            v.LocalTransparencyModifier = 1
+        end
+        TP.touched[v] = true
+    end)
+end
+
+local function restoreBody()
+    for v in pairs(TP.touched) do
+        if v and v.Parent then
+            pcall(function() v.LocalTransparencyModifier = 0 end)
+        end
+    end
+    TP.touched = {}
+end
+
+local function restoreCamera()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.CameraOffset = Vector3.new(0, 0, 0) end
+        end
+        Camera.CameraType = Enum.CameraType.Custom
+    end)
+end
+
+RunService:BindToRenderStep("Sandrey_ThirdPerson", Enum.RenderPriority.Camera.Value + 1, function()
+    if not TP.active then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+
+    if LocalPlayer.CameraMode ~= Enum.CameraMode.Classic then
+        LocalPlayer.CameraMode = Enum.CameraMode.Classic
+    end
+    if Camera.CameraType ~= Enum.CameraType.Custom then
+        Camera.CameraType = Enum.CameraType.Custom
+    end
+    if LocalPlayer.CameraMaxZoomDistance < Config.TP_Distance + 4 then
+        LocalPlayer.CameraMaxZoomDistance = Config.TP_Distance + 4
+    end
+
+    local goal = Vector3.new(Config.TP_Side, Config.TP_Height, Config.TP_Distance)
+    if (hum.CameraOffset - goal).Magnitude > 0.005 then
+        hum.CameraOffset = goal
+    end
+
+    if Config.TP_HideBody then hideBody(char) end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    TP.touched = {}
+    if not TP.active then return end
+    char:WaitForChild("Humanoid", 5)
+    task.wait(0.15)
+end)
+
+local setTPToggle = addToggle(sCam, "Включить третье лицо", Config.TP_Enabled, function(state)
+    TP.active = state
+    Config.TP_Enabled = state
+    if not state then
+        restoreBody()
+        restoreCamera()
+    end
+    notify(state and "Третье лицо: ВКЛ" or "Третье лицо: ВЫКЛ")
+    saveConfig()
+end)
+
+addSlider(sCam, "Дистанция", 2, 25, Config.TP_Distance, function(v)
+    Config.TP_Distance = v saveConfig()
+end, true)
+
+addSlider(sCam, "Высота", -5, 8, Config.TP_Height, function(v)
+    Config.TP_Height = v saveConfig()
+end, false)
+
+addSlider(sCam, "Смещение вбок", -6, 6, Config.TP_Side, function(v)
+    Config.TP_Side = v saveConfig()
+end, false)
+
+addToggle(sCam, "Полностью скрыть тело", Config.TP_HideBody, function(state)
+    Config.TP_HideBody = state
+    if not state then restoreBody() end
+    saveConfig()
+end)
+
+addToggle(sCam, "Скрывать оружие в руках", Config.TP_HideTool, function(state)
+    Config.TP_HideTool = state
+    if not state then restoreBody() end
+    saveConfig()
+end)
+
+addButton(sCam, "Сбросить камеру", function()
+    TP.active = false
+    Config.TP_Enabled = false
+    setTPToggle(false)
+    restoreBody()
+    restoreCamera()
+    notify("Камера сброшена")
+end)
+
+if Config.TP_Enabled then TP.active = true end
+
+-- ═══════════════════ COMBAT · SILENT AIM ═══════════════════
+local sAim = addSection(pageCombat, "Silent Aim",
+    "Перехватывает Raycast / FindPartOnRay и подменяет направление луча на цель. Точка прицела — свободная (курсор или палец) либо жёстко в центре экрана.")
+
+local FOVCircle
+pcall(function()
+    FOVCircle = Drawing.new("Circle")
+    FOVCircle.Thickness = 1.2
+    FOVCircle.NumSides = 72
+    FOVCircle.Filled = false
+    FOVCircle.Transparency = 0.55
+    FOVCircle.Color = Config.Accent2
+    FOVCircle.Visible = false
+end)
+
+local lastTouchPos = nil
+UserInputService.TouchStarted:Connect(function(t)
+    lastTouchPos = Vector2.new(t.Position.X, t.Position.Y)
+end)
+UserInputService.TouchMoved:Connect(function(t)
+    lastTouchPos = Vector2.new(t.Position.X, t.Position.Y)
+end)
+
+local function getAimPoint()
+    if Config.SA_AimMode == "Center" then
+        local vp = Camera.ViewportSize
+        return Vector2.new(vp.X / 2, vp.Y / 2)
+    end
+    if UserInputService.TouchEnabled and lastTouchPos then
+        return lastTouchPos
+    end
+    local inset = GuiService:GetGuiInset()
+    local m = UserInputService:GetMouseLocation()
+    return Vector2.new(m.X + inset.X, m.Y + inset.Y)
+end
+
+local function isEnemy(plr)
+    if plr == LocalPlayer then return false end
+    if not Config.SA_IgnoreTeam then return true end
+    local ok, same = pcall(function()
+        return plr.Team ~= nil and LocalPlayer.Team ~= nil and plr.Team == LocalPlayer.Team
+    end)
+    return not (ok and same)
+end
+
+local function getTarget()
+    local aim = getAimPoint()
+    local best, bestDist = nil, Config.SA_FOV
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if isEnemy(plr) and plr.Character then
+            local char = plr.Character
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local wanted = Config.SA_Part
+                if wanted == "Random" then
+                    wanted = (math.random() < 0.5) and "Head" or "HumanoidRootPart"
+                end
+                local part = char:FindFirstChild(wanted) or char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+                if part then
+                    local v, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local d = (Vector2.new(v.X, v.Y) - aim).Magnitude
+                        if d < bestDist then
+                            bestDist, best = d, part
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best
+end
+
+local hooked = false
+
+-- Надёжная проверка "свой ли это вызов" — не падает если checkcaller отсутствует
+local function isOwnCall()
+    local ok, res = pcall(function()
+        if checkcaller then return checkcaller() end
+        return false
+    end)
+    return ok and res
+end
+
+local function installHook()
+    if hooked then return true end
+    if not hookmetamethod or not getnamecallmethod then
+        notify("Executor не поддерживает hookmetamethod", 4)
+        return false
+    end
+
+    local ok = pcall(function()
+        local old
+        -- Используем newcclosure напрямую если доступен — это самый надёжный путь для Delta
+        local wrapped = function(self, ...)
+            local method = getnamecallmethod()
+            if Config.SA_Enabled and not isOwnCall() then
+                local target = getTarget()
+                if target and target.Parent and target.Position then
+                    local args = {...}
+                    if method == "Raycast" then
+                        local origin = args[1]
+                        if typeof(origin) == "Vector3" then
+                            local dir = args[2]
+                            local len = (typeof(dir) == "Vector3" and dir.Magnitude > 0) and dir.Magnitude or 2000
+                            local newDir = (target.Position - origin)
+                            if newDir.Magnitude > 0.001 then
+                                newDir = newDir.Unit * len
+                                -- Сохраняем RaycastParams если он есть (3-й аргумент)
+                                return old(self, origin, newDir, args[3])
+                            end
+                        end
+                    elseif method == "FindPartOnRay" then
+                        local ray = args[1]
+                        if typeof(ray) == "Ray" and ray.Direction.Magnitude > 0 then
+                            local newDir = (target.Position - ray.Origin)
+                            if newDir.Magnitude > 0.001 then
+                                local newRay = Ray.new(ray.Origin, newDir.Unit * ray.Direction.Magnitude)
+                                return old(self, newRay, args[2], args[3], args[4])
+                            end
+                        end
+                    elseif method == "FindPartOnRayWithIgnoreList" then
+                        local ray = args[1]
+                        if typeof(ray) == "Ray" and ray.Direction.Magnitude > 0 then
+                            local newDir = (target.Position - ray.Origin)
+                            if newDir.Magnitude > 0.001 then
+                                local newRay = Ray.new(ray.Origin, newDir.Unit * ray.Direction.Magnitude)
+                                return old(self, newRay, args[2], args[3], args[4])
+                            end
+                        end
+                    elseif method == "FindPartOnRayWithWhitelist" then
+                        local ray = args[1]
+                        if typeof(ray) == "Ray" and ray.Direction.Magnitude > 0 then
+                            local newDir = (target.Position - ray.Origin)
+                            if newDir.Magnitude > 0.001 then
+                                local newRay = Ray.new(ray.Origin, newDir.Unit * ray.Direction.Magnitude)
+                                return old(self, newRay, args[2], args[3])
+                            end
+                        end
+                    end
+                end
+            end
+            return old(self, ...)
+        end
+
+        if newcclosure then
+            local wOk, wRes = pcall(newcclosure, wrapped)
+            if wOk and wRes then
+                old = hookmetamethod(game, "__namecall", wRes)
+            else
+                old = hookmetamethod(game, "__namecall", wrapped)
+            end
+        else
+            old = hookmetamethod(game, "__namecall", wrapped)
+        end
+    end)
+
+    if ok then
+        hooked = true
+        notify("Silent Aim: хук установлен", 2.2)
+    else
+        notify("Не удалось установить хук Silent Aim", 4)
+    end
+    return ok
+end
+
+RunService.RenderStepped:Connect(function()
+    if not FOVCircle then return end
+    if Config.SA_Enabled and Config.SA_ShowFOV then
+        local p = getAimPoint()
+        FOVCircle.Position = p
+        FOVCircle.Radius = Config.SA_FOV
+        FOVCircle.Color = Config.Accent2
+        FOVCircle.Visible = true
+    else
+        FOVCircle.Visible = false
+    end
+end)
+
+addToggle(sAim, "Включить Silent Aim", false, function(state)
+    if state and not installHook() then return end
+    Config.SA_Enabled = state
+    notify(state and "Silent Aim: ВКЛ" or "Silent Aim: ВЫКЛ")
+    saveConfig()
+end)
+
+local aimModes = {"Курсор / Касание", "Центр экрана"}
+addDropdown(sAim, "Точка прицела", aimModes, Config.SA_AimMode == "Center" and 2 or 1, function(i)
+    Config.SA_AimMode = (i == 2) and "Center" or "Cursor"
+    notify("Точка прицела: " .. aimModes[i])
+    saveConfig()
+end)
+
+addSlider(sAim, "Радиус FOV", 20, 600, Config.SA_FOV, function(v)
+    Config.SA_FOV = v saveConfig()
+end, true, " px")
+
+local partOptions = {"HumanoidRootPart", "Head", "Random"}
+local partIndex = 1
+for i, v in ipairs(partOptions) do if v == Config.SA_Part then partIndex = i end end
+addDropdown(sAim, "Часть тела", partOptions, partIndex, function(_, opt)
+    Config.SA_Part = opt saveConfig()
+end)
+
+addToggle(sAim, "Показывать круг FOV", Config.SA_ShowFOV, function(state)
+    Config.SA_ShowFOV = state saveConfig()
+end)
+
+addToggle(sAim, "Игнорировать союзников", Config.SA_IgnoreTeam, function(state)
+    Config.SA_IgnoreTeam = state saveConfig()
+end)
+
+local sAimInfo = addSection(pageCombat, "Статус")
+local lblTarget = addLabel(sAimInfo, "Цель: нет")
+task.spawn(function()
+    while ScreenGui.Parent do
+        if Config.SA_Enabled then
+            local t = getTarget()
+            if t and t.Parent then
+                local plr = Players:GetPlayerFromCharacter(t.Parent)
+                lblTarget.Text = "Цель: " .. (plr and plr.DisplayName or t.Parent.Name) .. "  ·  " .. t.Name
+            else
+                lblTarget.Text = "Цель: нет"
+            end
+        else
+            lblTarget.Text = "Цель: — (выключено)"
+        end
+        task.wait(0.2)
+    end
+end)
+
+-- ─────────── PLAYER ───────────
+local sHp = addSection(pagePlayer, "Состояние")
+local hpBg = create("Frame", {Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Color3.fromRGB(28, 29, 33), BorderSizePixel = 0, Parent = sHp})
+corner(hpBg, 3)
+local hpFill = create("Frame", {Size = UDim2.new(1, 0, 1, 0), BorderSizePixel = 0, Parent = hpBg})
+corner(hpFill, 3); gradient(hpFill, 0)
+local hpText = addLabel(sHp, "Health: -- / --")
+
+local function updateHealth()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum and hum.MaxHealth > 0 then
+        hpFill.Size = UDim2.new(math.clamp(hum.Health / hum.MaxHealth, 0, 1), 0, 1, 0)
+        hpText.Text = string.format("Health: %.0f / %.0f", hum.Health, hum.MaxHealth)
+    else
+        hpText.Text = "Health: -- / --"
+    end
+end
+
+local function bindHumanoid()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    updateHealth()
+    hum.HealthChanged:Connect(updateHealth)
+    hum:GetPropertyChangedSignal("MaxHealth"):Connect(updateHealth)
+end
+bindHumanoid()
+LocalPlayer.CharacterAdded:Connect(function() task.wait(0.3) bindHumanoid() end)
+
+local sPos = addSection(pagePlayer, "Позиция")
+local posLabel = addLabel(sPos, "Position: --")
+task.spawn(function()
+    while ScreenGui.Parent do
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local p = hrp.Position
+            posLabel.Text = string.format("Position: %.1f, %.1f, %.1f", p.X, p.Y, p.Z)
+        else
+            posLabel.Text = "Position: --"
+        end
+        task.wait(0.2)
+    end
+end)
+addButton(sPos, "Скопировать координаты", function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp and setclipboard then
+        local p = hrp.Position
+        setclipboard(string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z))
+        notify("Координаты скопированы")
+    end
+end)
+
+-- ─────────── SERVER ───────────
+local sSrv = addSection(pageServer, "Сервер")
+local lblPlayers = addLabel(sSrv, "Игроки: --")
+addLabel(sSrv, "JobId: " .. tostring(game.JobId))
+local function updSrv()
+    lblPlayers.Text = "Игроки: " .. #Players:GetPlayers() .. " / " .. Players.MaxPlayers
+end
+updSrv()
+Players.PlayerAdded:Connect(updSrv)
+Players.PlayerRemoving:Connect(updSrv)
+
+local sUtil = addSection(pageServer, "Утилиты")
+addButton(sUtil, "Скопировать JobId", function()
+    if setclipboard then setclipboard(tostring(game.JobId)) notify("JobId скопирован") end
+end)
+addButton(sUtil, "Перезайти на сервер", function()
+    pcall(function() game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer) end)
+end)
+
+-- ─────────── SETTINGS ───────────
+local sTheme = addSection(pageSettings, "Оформление", "Выбери палитру — все темы выдержаны в сдержанной премиальной гамме.")
+local themeRow = create("Frame", {Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1, Parent = sTheme})
+create("UIListLayout", {
+    FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10),
+    SortOrder = Enum.SortOrder.LayoutOrder, Parent = themeRow
+})
+for i, t in ipairs(Themes) do
+    local swatch = create("TextButton", {
+        Text = "", Size = UDim2.fromOffset(42, 42),
+        BackgroundColor3 = Color3.fromRGB(30, 31, 35), AutoButtonColor = false, Parent = themeRow
+    })
+    corner(swatch, 12)
+    create("UIGradient", {Color = ColorSequence.new(t.A, t.B), Rotation = 25, Parent = swatch})
+    create("UIStroke", {Color = Color3.fromRGB(60, 62, 70), Thickness = 1, Transparency = 0.4, Parent = swatch})
+    swatch.MouseEnter:Connect(function()
+        tween(swatch, TweenInfo.new(0.2), {Size = UDim2.fromOffset(46, 46)})
+    end)
+    swatch.MouseLeave:Connect(function()
+        tween(swatch, TweenInfo.new(0.2), {Size = UDim2.fromOffset(42, 42)})
+    end)
+    swatch.MouseButton1Click:Connect(function()
+        applyTheme(i)
+        notify("Тема: " .. t.Name)
+    end)
+end
+
+local sUI = addSection(pageSettings, "Интерфейс")
+addSlider(sUI, "Масштаб", 0.3, 1.6, Config.UIScale, function(v)
+    Config.UIScale = v
+    UIScaleInst.Scale = v
+    saveConfig()
+end)
+
+local keyBtnLabel
+local listeningKey = false
+local keyRow = create("Frame", {Size = UDim2.new(1, 0, 0, 32), BackgroundTransparency = 1, Parent = sUI})
+create("TextLabel", {
+    Text = "Клавиша скрытия", Font = Enum.Font.GothamSemibold, TextSize = 11.5,
+    TextColor3 = Palette.Text, TextXAlignment = Enum.TextXAlignment.Left,
+    Size = UDim2.new(1, -110, 1, 0), BackgroundTransparency = 1, Parent = keyRow
+})
+keyBtnLabel = create("TextButton", {
+    Text = tostring(Config.ToggleKey):gsub("Enum.KeyCode.", ""),
+    Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = Palette.Text,
+    Size = UDim2.fromOffset(104, 28), Position = UDim2.new(1, -104, 0.5, -14),
+    BackgroundColor3 = Palette.PanelAlt, AutoButtonColor = false, Parent = keyRow
+})
+corner(keyBtnLabel, 9); stroke(keyBtnLabel, 1, 0.55)
+keyBtnLabel.MouseButton1Click:Connect(function()
+    listeningKey = true
+    keyBtnLabel.Text = "Нажми клавишу..."
+end)
+
+addButton(sUI, "Свернуть в пилюлю", function() MainFrame.Visible = false end)
+addButton(sUI, "Выгрузить Sandrey", function()
+    pcall(function() RunService:UnbindFromRenderStep("Sandrey_ThirdPerson") end)
+    restoreBody() restoreCamera()
+    if FOVCircle then pcall(function() FOVCircle:Remove() end) end
+    ScreenGui:Destroy()
+end)
+
+-- ═══════════════════ WINDOW CONTROLS ═══════════════════
+local function toggleWindow()
+    MainFrame.Visible = not MainFrame.Visible
+    PillChevron.Text = MainFrame.Visible and "‹" or "›"
+end
+
+makeDraggable(Pill, Pill, toggleWindow, function() return pillLocked end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    pcall(function() RunService:UnbindFromRenderStep("Sandrey_ThirdPerson") end)
+    restoreBody() restoreCamera()
+    if FOVCircle then pcall(function() FOVCircle:Remove() end) end
+    ScreenGui:Destroy()
+end)
+
+HideBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    PillChevron.Text = "›"
+end)
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+    if listeningKey then
+        listeningKey = false
+        Config.ToggleKey = input.KeyCode
+        keyBtnLabel.Text = tostring(input.KeyCode):gsub("Enum.KeyCode.", "")
+        saveConfig()
+        return
+    end
+    if gpe then return end
+    if input.KeyCode == Config.ToggleKey then toggleWindow() end
+end)
+
+-- ═══════════════════ INIT ═══════════════════
+applyTheme(Config.ThemeIndex)
+selectTab(Tabs[1])
+
+MainFrame.Size = UDim2.fromOffset(640, 420)
+tween(MainFrame, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.fromOffset(700, 462)})
+Pill.Position = UDim2.new(0, -230, 0, 96)
+tween(Pill, TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0, 24, 0, 96)})
+
+notify("Sandrey Premium загружен · " .. getExecutorName(), 3)
+print("[Sandrey] Premium v2.1 loaded | Executor: " .. getExecutorName() .. " | MSK " .. moscowTime())
