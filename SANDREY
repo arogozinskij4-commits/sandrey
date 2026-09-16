@@ -1,0 +1,426 @@
+-- ============================================
+--  ESP Username + Distance (5000 studs)
+--  Перетаскиваемое меню с блокировкой
+--  Executor: Delta Executor
+-- ============================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Состояние
+local ESPEnabled = true
+local MenuLocked = false  -- false = можно двигать, true = заблокировано
+local MenuMinimized = false
+local espObjects = {}
+
+-- ============================================
+--  GUI — Перетаскиваемое меню
+-- ============================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ESP_Menu_GUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")  -- Используем PlayerGui
+
+-- Основной фрейм меню
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainMenu"
+MainFrame.Size = UDim2.new(0, 280, 0, 180)
+MainFrame.Position = UDim2.new(0, 20, 0.5, -90)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true  -- Встроенное перетаскивание
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(0, 150, 255)
+MainStroke.Thickness = 2
+MainStroke.Parent = MainFrame
+
+-- Заголовок (зона перетаскивания)
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = TitleBar
+
+-- Текст заголовка
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -80, 1, 0)
+TitleText.Position = UDim2.new(0, 10, 0, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "🔒 ESP Menu"
+TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleText.TextSize = 16
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+-- Кнопка замка (блокировка перемещения)
+local LockBtn = Instance.new("TextButton")
+LockBtn.Name = "LockBtn"
+LockBtn.Size = UDim2.new(0, 35, 0, 30)
+LockBtn.Position = UDim2.new(1, -75, 0, 5)
+LockBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+LockBtn.BorderSizePixel = 0
+LockBtn.Text = "🔓"
+LockBtn.TextSize = 16
+LockBtn.Font = Enum.Font.GothamBold
+LockBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+LockBtn.Parent = TitleBar
+
+local LockBtnCorner = Instance.new("UICorner")
+LockBtnCorner.CornerRadius = UDim.new(0, 6)
+LockBtnCorner.Parent = LockBtn
+
+-- Кнопка сворачивания
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Name = "MinimizeBtn"
+MinimizeBtn.Size = UDim2.new(0, 35, 0, 30)
+MinimizeBtn.Position = UDim2.new(1, -38, 0, 5)
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+MinimizeBtn.BorderSizePixel = 0
+MinimizeBtn.Text = "−"
+MinimizeBtn.TextSize = 20
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.Parent = TitleBar
+
+local MinimizeBtnCorner = Instance.new("UICorner")
+MinimizeBtnCorner.CornerRadius = UDim.new(0, 6)
+MinimizeBtnCorner.Parent = MinimizeBtn
+
+-- Контейнер кнопок
+local ButtonContainer = Instance.new("Frame")
+ButtonContainer.Name = "ButtonContainer"
+ButtonContainer.Size = UDim2.new(1, -20, 1, -60)
+ButtonContainer.Position = UDim2.new(0, 10, 0, 50)
+ButtonContainer.BackgroundTransparency = 1
+ButtonContainer.Parent = MainFrame
+
+local ButtonLayout = Instance.new("UIListLayout")
+ButtonLayout.Padding = UDim.new(0, 10)
+ButtonLayout.Parent = ButtonContainer
+
+-- Кнопка ESP ON/OFF
+local ESPBtn = Instance.new("TextButton")
+ESPBtn.Name = "ESPBtn"
+ESPBtn.Size = UDim2.new(1, 0, 0, 45)
+ESPBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
+ESPBtn.BorderSizePixel = 0
+ESPBtn.Text = "ESP: ON"
+ESPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ESPBtn.TextSize = 16
+ESPBtn.Font = Enum.Font.GothamBold
+ESPBtn.Parent = ButtonContainer
+
+local ESPBtnCorner = Instance.new("UICorner")
+ESPBtnCorner.CornerRadius = UDim.new(0, 8)
+ESPBtnCorner.Parent = ESPBtn
+
+-- Кнопка дистанции ON/OFF
+local DistBtn = Instance.new("TextButton")
+DistBtn.Name = "DistBtn"
+DistBtn.Size = UDim2.new(1, 0, 0, 45)
+DistBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
+DistBtn.BorderSizePixel = 0
+DistBtn.Text = "Distance: ON"
+DistBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+DistBtn.TextSize = 16
+DistBtn.Font = Enum.Font.GothamBold
+DistBtn.Parent = ButtonContainer
+
+local DistBtnCorner = Instance.new("UICorner")
+DistBtnCorner.CornerRadius = UDim.new(0, 8)
+DistBtnCorner.Parent = DistBtn
+
+-- ============================================
+--  Функции ESP
+-- ============================================
+
+local DistanceEnabled = true
+
+-- Форматирование дистанции
+local function formatDistance(dist)
+    if dist < 1000 then
+        return string.format("%.0fm", dist)
+    else
+        return string.format("%.1fkm", dist / 1000)
+    end
+end
+
+-- Создаёт BillboardGui над головой игрока
+local function addESP(player)
+    if player == LocalPlayer then return end
+    if espObjects[player] then return end
+
+    -- Ждём появления персонажа
+    local character = player.Character
+    if not character then
+        character = player.CharacterAdded:Wait()
+    end
+    
+    local head = character:WaitForChild("Head", 10)
+    if not head then return end
+
+    -- BillboardGui
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "UsernameESP"
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 220, 0, 60)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.LightInfluence = 0
+    billboard.MaxDistance = 5000
+    billboard.ExtentsOffsetWorldSpace = Vector3.zero
+    billboard.Parent = LocalPlayer.PlayerGui  -- ВАЖНО: в PlayerGui!
+
+    -- Фон
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    bg.BackgroundTransparency = 0.3
+    bg.BorderSizePixel = 0
+    bg.Parent = billboard
+
+    local bgCorner = Instance.new("UICorner")
+    bgCorner.CornerRadius = UDim.new(0, 6)
+    bgCorner.Parent = bg
+
+    local bgStroke = Instance.new("UIStroke")
+    bgStroke.Color = Color3.fromRGB(0, 180, 255)
+    bgStroke.Thickness = 1.5
+    bgStroke.Parent = bg
+
+    -- Текст логина
+    local usernameLabel = Instance.new("TextLabel")
+    usernameLabel.Size = UDim2.new(1, -10, 0, 20)
+    usernameLabel.Position = UDim2.new(0, 5, 0, 2)
+    usernameLabel.BackgroundTransparency = 1
+    usernameLabel.Text = player.Name
+    usernameLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+    usernameLabel.TextSize = 14
+    usernameLabel.Font = Enum.Font.GothamBold
+    usernameLabel.TextStrokeTransparency = 0.5
+    usernameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    usernameLabel.Parent = billboard
+
+    -- Текст дистанции
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Size = UDim2.new(1, -10, 0, 16)
+    distanceLabel.Position = UDim2.new(0, 5, 0, 22)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Text = "0m"
+    distanceLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    distanceLabel.TextSize = 12
+    distanceLabel.Font = Enum.Font.GothamBold
+    distanceLabel.TextStrokeTransparency = 0.5
+    distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceLabel.Parent = billboard
+
+    -- Подпись "username"
+    local subLabel = Instance.new("TextLabel")
+    subLabel.Size = UDim2.new(1, -10, 0, 14)
+    subLabel.Position = UDim2.new(0, 5, 1, -16)
+    subLabel.BackgroundTransparency = 1
+    subLabel.Text = "username"
+    subLabel.TextColor3 = Color3.fromRGB(150, 150, 170)
+    subLabel.TextSize = 9
+    subLabel.Font = Enum.Font.Gotham
+    subLabel.TextStrokeTransparency = 0.8
+    subLabel.Parent = billboard
+
+    -- Сохраняем ссылку
+    espObjects[player] = {
+        billboard = billboard,
+        distanceLabel = distanceLabel,
+        head = head
+    }
+
+    -- Если ESP выключен — сразу скрываем
+    if not ESPEnabled then
+        billboard.Enabled = false
+    end
+
+    -- Если персонаж респавнится — пересоздаём
+    player.CharacterAdded:Connect(function(newChar)
+        -- Удаляем старый
+        if espObjects[player] then
+            espObjects[player].billboard:Destroy()
+            espObjects[player] = nil
+        end
+        task.wait(1)
+        addESP(player)
+    end)
+end
+
+-- Удаляет ESP игрока
+local function removeESP(player)
+    if espObjects[player] then
+        espObjects[player].billboard:Destroy()
+        espObjects[player] = nil
+    end
+end
+
+-- Включить ESP для всех
+local function enableAll()
+    for player, data in pairs(espObjects) do
+        data.billboard.Enabled = true
+    end
+end
+
+-- Выключить ESP для всех
+local function disableAll()
+    for player, data in pairs(espObjects) do
+        data.billboard.Enabled = false
+    end
+end
+
+-- ============================================
+--  Обновление дистанции в реальном времени
+-- ============================================
+
+RunService.Heartbeat:Connect(function()
+    if not ESPEnabled or not DistanceEnabled then return end
+    
+    local localChar = LocalPlayer.Character
+    if not localChar then return end
+    
+    local localHead = localChar:FindFirstChild("Head")
+    if not localHead then return end
+    
+    for player, data in pairs(espObjects) do
+        if data.head and data.head.Parent then
+            local distance = (data.head.Position - localHead.Position).Magnitude
+            data.distanceLabel.Text = formatDistance(distance)
+            data.distanceLabel.Visible = DistanceEnabled
+        end
+    end
+end)
+
+-- ============================================
+--  Обработчики кнопок
+-- ============================================
+
+-- Кнопка ESP
+ESPBtn.MouseButton1Click:Connect(function()
+    ESPEnabled = not ESPEnabled
+
+    if ESPEnabled then
+        ESPBtn.Text = "ESP: ON"
+        ESPBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
+        enableAll()
+    else
+        ESPBtn.Text = "ESP: OFF"
+        ESPBtn.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
+        disableAll()
+    end
+end)
+
+-- Кнопка дистанции
+DistBtn.MouseButton1Click:Connect(function()
+    DistanceEnabled = not DistanceEnabled
+
+    if DistanceEnabled then
+        DistBtn.Text = "Distance: ON"
+        DistBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 80)
+    else
+        DistBtn.Text = "Distance: OFF"
+        DistBtn.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
+        -- Скрываем все дистанции
+        for player, data in pairs(espObjects) do
+            data.distanceLabel.Visible = false
+        end
+    end
+end)
+
+-- Кнопка замка (блокировка перемещения)
+LockBtn.MouseButton1Click:Connect(function()
+    MenuLocked = not MenuLocked
+    
+    if MenuLocked then
+        LockBtn.Text = "🔒"
+        TitleText.Text = "🔒 ESP Menu (Locked)"
+        MainFrame.Active = false  -- Блокируем перемещение
+        MainFrame.Draggable = false
+    else
+        LockBtn.Text = "🔓"
+        TitleText.Text = "🔓 ESP Menu"
+        MainFrame.Active = true
+        MainFrame.Draggable = true
+    end
+end)
+
+-- Кнопка сворачивания
+MinimizeBtn.MouseButton1Click:Connect(function()
+    MenuMinimized = not MenuMinimized
+    
+    if MenuMinimized then
+        MinimizeBtn.Text = "+"
+        ButtonContainer.Visible = false
+        MainFrame.Size = UDim2.new(0, 280, 0, 40)
+        
+        -- При сворачивании автоматически блокируем
+        MenuLocked = true
+        LockBtn.Text = "🔒"
+        TitleText.Text = "🔒 ESP Menu (Locked)"
+        MainFrame.Active = false
+        MainFrame.Draggable = false
+    else
+        MinimizeBtn.Text = "−"
+        ButtonContainer.Visible = true
+        MainFrame.Size = UDim2.new(0, 280, 0, 180)
+        
+        -- При разворачивании разблокируем
+        MenuLocked = false
+        LockBtn.Text = "🔓"
+        TitleText.Text = "🔓 ESP Menu"
+        MainFrame.Active = true
+        MainFrame.Draggable = true
+    end
+end)
+
+-- ============================================
+--  Подключение событий игроков
+-- ============================================
+
+-- Текущие игроки
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        task.spawn(function()
+            addESP(player)
+        end)
+    end
+end
+
+-- Новый игрок зашёл
+Players.PlayerAdded:Connect(function(player)
+    task.spawn(function()
+        addESP(player)
+    end)
+end)
+
+-- Игрок вышел
+Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
+end)
+
+print("[ESP Username + Distance] Загружен!")
+print("Меню можно перетаскивать за заголовок")
+print("🔒 - заблокировать перемещение")
+print("− - свернуть меню (автоматически блокирует)")
